@@ -24,6 +24,7 @@ export const validateEmails = (payload) => api.post("/validate", payload).then((
 export const getHistory = () => api.get("/history").then((r) => r.data);
 export const getBatch = (id) => api.get(`/history/${id}`).then((r) => r.data);
 export const deleteBatch = (id) => api.delete(`/history/${id}`).then((r) => r.data);
+export const clearHistory = () => api.delete("/history").then((r) => r.data);
 
 // --- Bulk jobs ---
 export const createJob = (formData) =>

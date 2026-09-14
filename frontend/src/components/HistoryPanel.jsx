@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getHistory, getBatch, deleteBatch } from "@/lib/api";
+import { getHistory, getBatch, deleteBatch, clearHistory } from "@/lib/api";
 
 export function HistoryPanel({ open, onOpenChange, onLoad, refreshKey }) {
   const [items, setItems] = useState([]);
@@ -47,6 +47,16 @@ export function HistoryPanel({ open, onOpenChange, onLoad, refreshKey }) {
     }
   };
 
+  const clearAll = async () => {
+    try {
+      await clearHistory();
+      setItems([]);
+      toast.success("History cleared");
+    } catch {
+      toast.error("Failed to clear history");
+    }
+  };
+
   const fmt = (iso) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
   return (
@@ -58,9 +68,17 @@ export function HistoryPanel({ open, onOpenChange, onLoad, refreshKey }) {
       </SheetTrigger>
       <SheetContent data-testid="history-panel" side="right" className="w-full sm:max-w-md bg-card border-border/60 mp-scroll">
         <SheetHeader className="text-left">
-          <SheetTitle className="font-display flex items-center gap-2 text-foreground">
-            <History size={18} className="text-emerald-400" /> Check History
-          </SheetTitle>
+          <div className="flex items-center justify-between gap-2">
+            <SheetTitle className="font-display flex items-center gap-2 text-foreground">
+              <History size={18} className="text-emerald-400" /> Check History
+            </SheetTitle>
+            {items.length > 0 && (
+              <Button data-testid="clear-history-button" onClick={clearAll} variant="ghost" size="sm"
+                      className="h-8 gap-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-950/30">
+                <Trash2 size={14} /> Clear all
+              </Button>
+            )}
+          </div>
           <SheetDescription className="text-xs text-muted-foreground">
             Past validation runs — click any run to reload its results.
           </SheetDescription>

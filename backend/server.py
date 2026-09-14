@@ -409,6 +409,13 @@ async def history_detail(batch_id: str, x_client_id: str = Header(None, alias="X
     return BatchDetail(**d)
 
 
+@api_router.delete("/history")
+async def clear_history(x_client_id: str = Header(None, alias="X-Client-Id")):
+    owner = x_client_id or "public"
+    res = await db.batches.delete_many({"owner_id": owner})
+    return {"deleted": res.deleted_count}
+
+
 @api_router.delete("/history/{batch_id}")
 async def delete_batch(batch_id: str, x_client_id: str = Header(None, alias="X-Client-Id")):
     owner = x_client_id or "public"
