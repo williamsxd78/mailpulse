@@ -50,9 +50,13 @@ ROLE_PREFIXES = {
 
 TYPO_DOMAINS = {
     "gmial.com": "gmail.com", "gmai.com": "gmail.com", "gmail.co": "gmail.com",
-    "gnail.com": "gmail.com", "gmail.con": "gmail.com", "hotmial.com": "hotmail.com",
-    "hotmai.com": "hotmail.com", "yaho.com": "yahoo.com", "yahooo.com": "yahoo.com",
-    "outlok.com": "outlook.com", "outllok.com": "outlook.com",
+    "gnail.com": "gmail.com", "gmail.con": "gmail.com", "gamil.com": "gmail.com",
+    "gmali.com": "gmail.com", "gmaill.com": "gmail.com", "gmail.cm": "gmail.com",
+    "hotmial.com": "hotmail.com", "hotmai.com": "hotmail.com", "hotmail.co": "hotmail.com",
+    "hotnail.com": "hotmail.com", "yaho.com": "yahoo.com", "yahooo.com": "yahoo.com",
+    "yahoo.co": "yahoo.com", "yhoo.com": "yahoo.com", "outlok.com": "outlook.com",
+    "outllok.com": "outlook.com", "outllook.com": "outlook.com", "outlook.co": "outlook.com",
+    "hotmail.con": "hotmail.com",
 }
 
 MAIL_FROM = os.environ.get("SMTP_MAIL_FROM", "verify@mailpulse.io")
@@ -262,7 +266,12 @@ def _prevalidate(email, out):
         return False, None, None
     local, domain = key.rsplit("@", 1)
     if domain in TYPO_DOMAINS:
-        out["suggestion"] = f"{local}@{TYPO_DOMAINS[domain]}"
+        suggestion = f"{local}@{TYPO_DOMAINS[domain]}"
+        out["suggestion"] = suggestion
+        out.update(status="typo", category="invalid",
+                   reason=f"Misspelled domain — did you mean {suggestion}?")
+        out["tags"] = ["Possible Typo"]
+        return False, None, None
     if domain in DISPOSABLE_DOMAINS:
         out.update(status="disposable", reason="Disposable / throwaway domain")
         out["tags"] = ["Disposable Domain"]

@@ -1,0 +1,23 @@
+{
+  "summary": "Iteration 3: Verified TYPO_DOMAIN bug fix. Created /app/backend/tests/test_typo_fix.py with 5 focused tests -- all PASS. Confirmed: (a) POST /api/validate with 'user@gmial.com' returns category=invalid, status=typo, tag 'Possible Typo', suggestion 'user@gmail.com'; (b) yaho.com, hotmial.com, outlok.com also classified invalid with correct suggestions; (c) 'good@gmail.com' with smtp_check=false still deliverable; (d) regression: invalid syntax / disposable / no-MX all invalid; (e) X-Client-Id isolation intact for /api/history. Bulk regression tested manually via curl: POST /api/jobs with 'user@gmial.com' + smtp_check=false completed with invalid_count=1, deliverable_count=0. Frontend Playwright: Quick Check tab, entered 'user@gmial.com', SMTP off, clicked Validate -> email lands in invalid-box with POSSIBLE TYPO badge and 'did you mean user@gmail.com?' suggestion; deliverable-box stays empty; invalid-count-badge=1, deliverable-count-badge=0. Screenshot confirms UI. No console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_typo_fix.py",
+    "/app/test_reports/pytest/pytest_typo.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "verifier.py: _prevalidate correctly short-circuits typo domains before MX/SMTP -- deterministic and fast. Good single-source-of-truth refactor: both verify_batch (bulk) and validate_emails (quick) call _prevalidate, so bulk path automatically inherits the fix.",
+    "Minor: _mx_only_classify also appends 'Possible Typo' when out.suggestion is set, but for typo domains _prevalidate now returns needs_smtp=False so _mx_only_classify is never called on them -- that branch is now effectively dead code for typos. Harmless.",
+    "Consider adding a few more common typos: gamil.com, gmali.com, yahoo.co (missing m), outllook.com etc. Current TYPO_DOMAINS list is small.",
+    "Test iteration_2's flagged stale assertion in test_validator.test_validate_mixed_categorization (john.doe@gmail.com now returns mailbox_not_found from live Gmail SMTP) still stands -- not related to this fix."
+  ],
+  "updated_files": ["/app/backend/tests/test_typo_fix.py"],
+  "success_rate": {"backend": "100% (5/5 typo tests)", "frontend": "100%"},
+  "seed_data_creation": "TEST_-prefixed batches auto-cleaned via DELETE /api/history in each test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Typo fix is fully covered by /app/backend/tests/test_typo_fix.py. Both quick (/api/validate) and bulk (/api/jobs) paths share verifier._prevalidate, so future typo additions only require updating TYPO_DOMAINS map in verifier.py.",
+  "rca of the issue": "Root cause: previously, quick /api/validate used a duplicated copy of validation logic in server.py that ran MX check on typo-squatted domains (gmial.com, yaho.com, etc.) which happen to have live MX records -- so they were classified deliverable. Fix: (1) server.py now imports and delegates to verifier.validate_emails (single source of truth); (2) verifier._prevalidate checks TYPO_DOMAINS before MX lookup and returns category=invalid, status=typo, tags=['Possible Typo'], suggestion=<corrected email>, needs_smtp=False. Verified end-to-end."
+}

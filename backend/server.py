@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 import dns.resolver
 import bulk
+import verifier
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -360,7 +361,7 @@ async def root():
 
 @api_router.post("/validate", response_model=BatchDetail)
 async def validate(req: ValidateRequest, x_client_id: str = Header(None, alias="X-Client-Id")):
-    results = await validate_emails(req.emails, req.dedupe, req.smtp_check)
+    results = await verifier.validate_emails(req.emails, req.dedupe, req.smtp_check)
     if not results:
         raise HTTPException(status_code=400, detail="No valid email entries to process")
 
