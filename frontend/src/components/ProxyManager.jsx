@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Server, Plus, Trash2, Loader2, CheckCircle2, XCircle, Wifi,
-  BookOpen, ChevronDown, ExternalLink, ShieldCheck, Ban,
+  BookOpen, ExternalLink, ShieldCheck, Ban,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger,
 } from "@/components/ui/dialog";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import {
+  Accordion, AccordionItem, AccordionTrigger, AccordionContent,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,7 +38,6 @@ export function ProxyManager({ open, onOpenChange }) {
   const [testingId, setTestingId] = useState(null);
   const [directResult, setDirectResult] = useState(null);
   const [testingDirect, setTestingDirect] = useState(false);
-  const [guideOpen, setGuideOpen] = useState(true);
 
   const refresh = async () => {
     try { setProxies(await listProxies()); } catch { /* ignore */ }
@@ -111,120 +112,7 @@ export function ProxyManager({ open, onOpenChange }) {
         </DialogHeader>
 
         <ScrollArea className="mp-scroll pr-3 overflow-y-auto">
-          {/* Setup guide */}
-          <Collapsible open={guideOpen} onOpenChange={setGuideOpen} className="mb-4">
-            <div className="rounded-lg border border-emerald-800/40 bg-emerald-950/20 overflow-hidden">
-              <CollapsibleTrigger asChild>
-                <button data-testid="proxy-guide-toggle" className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-emerald-950/30 transition-colors">
-                  <span className="flex items-center gap-2 text-sm font-medium text-emerald-300">
-                    <BookOpen size={15} /> Setup guide — which proxies allow port 25
-                  </span>
-                  <ChevronDown size={15} className={`text-emerald-400 transition-transform ${guideOpen ? "rotate-180" : ""}`} />
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="px-3 pb-3 pt-1 space-y-3">
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    SMTP mailbox checks need <span className="text-emerald-300 font-medium">SOCKS5</span> proxies that explicitly allow
-                    <span className="text-emerald-300 font-medium"> outbound port 25</span>. HTTP/SOCKS4 can't tunnel the raw SMTP handshake.
-                  </p>
-
-                  <div>
-                    <p className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-300 mb-1.5">
-                      <ShieldCheck size={13} /> Providers that DO allow port 25
-                    </p>
-                    <div className="space-y-1.5">
-                      {ALLOW_PROVIDERS.map((p) => (
-                        <a key={p.name} href={p.url} target="_blank" rel="noreferrer"
-                           data-testid={`guide-provider-${p.name}`}
-                           className="flex items-start gap-2 rounded-md border border-border/50 bg-black/20 hover:bg-black/40 hover:border-emerald-800/50 px-2.5 py-2 transition-colors group">
-                          <ExternalLink size={12} className="mt-0.5 text-emerald-400 shrink-0" />
-                          <span className="min-w-0">
-                            <span className="text-xs text-foreground font-medium group-hover:text-emerald-300">{p.name}</span>
-                            <span className="block text-[10px] text-muted-foreground leading-snug">{p.note}</span>
-                          </span>
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-md border border-rose-900/40 bg-rose-950/20 px-2.5 py-2">
-                    <p className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-300 mb-1">
-                      <Ban size={13} /> Won't work
-                    </p>
-                    <p className="text-[10px] text-muted-foreground leading-snug">{BLOCK_PROVIDERS}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-[11px] font-semibold text-foreground mb-1">Quick steps</p>
-                    <ol className="text-[10px] text-muted-foreground space-y-0.5 list-decimal list-inside leading-relaxed">
-                      <li>Buy a <span className="text-emerald-300">SOCKS5</span> proxy that confirms "outbound port 25 access".</li>
-                      <li>Add it below (type SOCKS5 · host · port · optional user/pass).</li>
-                      <li>Hit <span className="text-emerald-300">Test</span> — it must show "✓ port 25 ok".</li>
-                      <li>Leave it enabled — bulk jobs auto-rotate through all working proxies.</li>
-                    </ol>
-                    <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">
-                      Tip: providers with reverse-DNS (PTR) + warmed, blacklist-clean IPs give far more accurate results than raw datacenter IPs.
-                    </p>
-                  </div>
-
-                  {/* Provider roadblocks */}
-                  <div className="rounded-md border border-amber-900/40 bg-amber-950/15 px-2.5 py-2">
-                    <p className="text-[11px] font-semibold text-amber-300 mb-1">Yahoo / AOL & iCloud roadblocks</p>
-                    <ul className="text-[10px] text-muted-foreground space-y-1 leading-snug list-disc list-inside">
-                      <li><span className="text-amber-300">Yahoo/AOL catch-all trap:</span> on high volume from an unproven IP, Yahoo replies 250 OK to <em>everything</em> (even fake addresses). We auto-detect this and tag those emails <span className="text-amber-300">Catch-All</span> instead of falsely "valid". Needs a pristine IP + FCrDNS to get real answers.</li>
-                      <li><span className="text-amber-300">Yahoo requires FCrDNS:</span> without matching forward/reverse DNS on your proxy IP, Yahoo refuses the port-25 connection outright.</li>
-                      <li><span className="text-amber-300">iCloud greylisting:</span> Apple often says "try again later" (4xx) to new IPs and hard-blocks budget VPS ranges. We flag these <span className="text-amber-300">Greylisted</span> (not invalid) so you can re-check later rather than get false bounces.</li>
-                    </ul>
-                  </div>
-
-                  {/* Self-host checklist */}
-                  <div className="rounded-md border border-border/50 bg-black/20 px-2.5 py-2">
-                    <p className="text-[11px] font-semibold text-foreground mb-1">Self-host checklist (run your own SOCKS5 on a VPS)</p>
-                    <ol className="text-[10px] text-muted-foreground space-y-1 leading-snug list-decimal list-inside">
-                      <li>Use a <span className="text-emerald-300">strict-KYC VPS</span> (Hetzner / Linode) — clean IP ranges. Open a ticket asking to unblock outbound port 25 for "email list hygiene, with full FCrDNS/SPF".</li>
-                      <li>Set up <span className="text-emerald-300">FCrDNS</span>: A record <code className="text-emerald-300">myverifier.com → VPS IP</code>, and PTR (reverse DNS) <code className="text-emerald-300">VPS IP → myverifier.com</code> (must match both ways).</li>
-                      <li>Publish <span className="text-emerald-300">SPF</span> (<code>v=spf1 ip4:YOUR_IP ~all</code>) and <span className="text-emerald-300">DMARC</span> (<code>v=DMARC1; p=none;</code>) on that domain.</li>
-                      <li>Point this app's HELO / MAIL FROM at your domain via backend env: <code className="text-emerald-300">SMTP_HELO_NAME=myverifier.com</code> and <code className="text-emerald-300">SMTP_MAIL_FROM=verifier@myverifier.com</code>.</li>
-                      <li>Run a SOCKS5 daemon (e.g. Dante) on the VPS and add it above. We already EHLO with your domain, use a real MAIL FROM, and send a clean QUIT — the MTA-emulation Yahoo expects.</li>
-                    </ol>
-                  </div>
-
-                  {/* Cost & sizing */}
-                  <div className="rounded-md border border-emerald-800/40 bg-emerald-950/15 px-2.5 py-2">
-                    <p className="text-[11px] font-semibold text-emerald-300 mb-1">Cutting cost & the 10k/day cap</p>
-                    <ul className="text-[10px] text-muted-foreground space-y-1 leading-snug list-disc list-inside">
-                      <li><span className="text-emerald-300">Pre-filter free first:</span> run the list once with <span className="text-emerald-300">SMTP off</span> (MX + syntax + disposable + typo) — it's unlimited and free, and removes a big chunk of junk before you spend any paid verifications.</li>
-                      <li><span className="text-emerald-300">Self-host beats managed at volume:</span> a strict-KYC VPS (Hetzner/Linode) is ~$5–15/mo with port 25 unblocked — no per-verification cap. One clean IP handles Gmail/Microsoft-heavy lists well beyond 10k/day; add 2–4 IPs only for Yahoo/AOL/iCloud reputation limits.</li>
-                      <li><span className="text-emerald-300">Rotate a few cheap IPs</span> instead of one expensive managed pool — this app auto-rotates through every enabled proxy.</li>
-                      <li>Managed pools ($49/mo tiers) are worth it only if you can't do DNS/PTR setup or need instant warmed IPs. For most, self-host is far cheaper per email.</li>
-                    </ul>
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
-
-          {/* Direct connectivity test */}
-          <div className="rounded-lg border border-border/60 bg-black/20 p-3 mb-4">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-medium text-foreground">Server connectivity (no proxy)</p>
-                <p className="text-[11px] text-muted-foreground">check if this server can reach port 25 directly</p>
-              </div>
-              <Button data-testid="test-direct-button" onClick={testDirect} disabled={testingDirect} size="sm" variant="secondary" className="gap-1.5">
-                {testingDirect ? <Loader2 size={13} className="animate-spin" /> : <Wifi size={13} />} Test
-              </Button>
-            </div>
-            {directResult && (
-              <div className={`mt-2 flex items-center gap-2 text-xs font-mono ${directResult.ok ? "text-emerald-400" : "text-rose-400"}`}>
-                {directResult.ok ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-                {directResult.message} {directResult.latency_ms ? `(${directResult.latency_ms}ms)` : ""}
-              </div>
-            )}
-          </div>
-
-          {/* Add form */}
+          {/* Add form — kept at top so users don't scroll */}
           <div className="rounded-lg border border-border/60 bg-black/20 p-3 mb-4">
             <p className="text-sm font-medium text-foreground mb-3">Add proxy</p>
             <div className="grid grid-cols-2 gap-3">
@@ -266,9 +154,9 @@ export function ProxyManager({ open, onOpenChange }) {
           </div>
 
           {/* List */}
-          <div className="space-y-2" data-testid="proxy-list">
+          <div className="space-y-2 mb-4" data-testid="proxy-list">
             {proxies.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">No proxies added — jobs will connect directly.</p>
+              <p className="text-sm text-muted-foreground text-center py-4">No proxies added — jobs will connect directly.</p>
             ) : proxies.map((p) => (
               <div key={p.id} className="flex items-center gap-3 rounded-lg border border-border/50 bg-black/20 p-3">
                 <div className="min-w-0 flex-1">
@@ -290,6 +178,124 @@ export function ProxyManager({ open, onOpenChange }) {
               </div>
             ))}
           </div>
+
+          {/* Direct connectivity test */}
+          <div className="rounded-lg border border-border/60 bg-black/20 p-3 mb-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium text-foreground">Server connectivity (no proxy)</p>
+                <p className="text-[11px] text-muted-foreground">check if this server can reach port 25 directly</p>
+              </div>
+              <Button data-testid="test-direct-button" onClick={testDirect} disabled={testingDirect} size="sm" variant="secondary" className="gap-1.5">
+                {testingDirect ? <Loader2 size={13} className="animate-spin" /> : <Wifi size={13} />} Test
+              </Button>
+            </div>
+            {directResult && (
+              <div className={`mt-2 flex items-center gap-2 text-xs font-mono ${directResult.ok ? "text-emerald-400" : "text-rose-400"}`}>
+                {directResult.ok ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                {directResult.message} {directResult.latency_ms ? `(${directResult.latency_ms}ms)` : ""}
+              </div>
+            )}
+          </div>
+
+          {/* Setup guide — click-to-expand sections */}
+          <div className="flex items-center gap-2 text-sm font-medium text-emerald-300 mb-2 px-1">
+            <BookOpen size={15} /> Setup guide
+          </div>
+          <Accordion type="multiple" className="space-y-2" data-testid="proxy-guide">
+            <AccordionItem value="providers" className="border border-emerald-800/40 bg-emerald-950/15 rounded-lg px-3">
+              <AccordionTrigger data-testid="guide-providers-trigger" className="text-[13px] font-medium text-emerald-300 hover:no-underline py-3">
+                Which proxies allow port 25
+              </AccordionTrigger>
+              <AccordionContent className="pb-3">
+                <p className="text-[11px] text-muted-foreground leading-relaxed mb-2">
+                  SMTP mailbox checks need <span className="text-emerald-300 font-medium">SOCKS5</span> proxies that explicitly allow
+                  <span className="text-emerald-300 font-medium"> outbound port 25</span>. HTTP/SOCKS4 can't tunnel the raw SMTP handshake.
+                </p>
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-300 mb-1.5">
+                  <ShieldCheck size={13} /> Providers that DO allow port 25
+                </p>
+                <div className="space-y-1.5">
+                  {ALLOW_PROVIDERS.map((p) => (
+                    <a key={p.name} href={p.url} target="_blank" rel="noreferrer"
+                       data-testid={`guide-provider-${p.name}`}
+                       className="flex items-start gap-2 rounded-md border border-border/50 bg-black/20 hover:bg-black/40 hover:border-emerald-800/50 px-2.5 py-2 transition-colors group">
+                      <ExternalLink size={12} className="mt-0.5 text-emerald-400 shrink-0" />
+                      <span className="min-w-0">
+                        <span className="text-xs text-foreground font-medium group-hover:text-emerald-300">{p.name}</span>
+                        <span className="block text-[10px] text-muted-foreground leading-snug">{p.note}</span>
+                      </span>
+                    </a>
+                  ))}
+                </div>
+                <div className="rounded-md border border-rose-900/40 bg-rose-950/20 px-2.5 py-2 mt-2">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-300 mb-1">
+                    <Ban size={13} /> Won't work
+                  </p>
+                  <p className="text-[10px] text-muted-foreground leading-snug">{BLOCK_PROVIDERS}</p>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="quicksteps" className="border border-border/50 bg-black/20 rounded-lg px-3">
+              <AccordionTrigger data-testid="guide-steps-trigger" className="text-[13px] font-medium text-foreground hover:no-underline py-3">
+                Quick steps
+              </AccordionTrigger>
+              <AccordionContent className="pb-3">
+                <ol className="text-[10px] text-muted-foreground space-y-0.5 list-decimal list-inside leading-relaxed">
+                  <li>Buy a <span className="text-emerald-300">SOCKS5</span> proxy that confirms "outbound port 25 access".</li>
+                  <li>Add it in the form above (type SOCKS5 · host · port · optional user/pass).</li>
+                  <li>Hit <span className="text-emerald-300">Test</span> — it must show "✓ port 25 ok".</li>
+                  <li>Leave it enabled — bulk jobs auto-rotate through all working proxies.</li>
+                </ol>
+                <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">
+                  Tip: providers with reverse-DNS (PTR) + warmed, blacklist-clean IPs give far more accurate results than raw datacenter IPs.
+                </p>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="roadblocks" className="border border-amber-900/40 bg-amber-950/10 rounded-lg px-3">
+              <AccordionTrigger data-testid="guide-roadblocks-trigger" className="text-[13px] font-medium text-amber-300 hover:no-underline py-3">
+                Yahoo / AOL & iCloud roadblocks
+              </AccordionTrigger>
+              <AccordionContent className="pb-3">
+                <ul className="text-[10px] text-muted-foreground space-y-1 leading-snug list-disc list-inside">
+                  <li><span className="text-amber-300">Yahoo/AOL catch-all trap:</span> on high volume from an unproven IP, Yahoo replies 250 OK to <em>everything</em> (even fake addresses). We auto-detect this and tag those emails <span className="text-amber-300">Catch-All</span> instead of falsely "valid". Needs a pristine IP + FCrDNS to get real answers.</li>
+                  <li><span className="text-amber-300">Yahoo requires FCrDNS:</span> without matching forward/reverse DNS on your proxy IP, Yahoo refuses the port-25 connection outright.</li>
+                  <li><span className="text-amber-300">iCloud greylisting:</span> Apple often says "try again later" (4xx) to new IPs and hard-blocks budget VPS ranges. We flag these <span className="text-amber-300">Greylisted</span> (not invalid) so you can re-check later rather than get false bounces.</li>
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="selfhost" className="border border-border/50 bg-black/20 rounded-lg px-3">
+              <AccordionTrigger data-testid="guide-selfhost-trigger" className="text-[13px] font-medium text-foreground hover:no-underline py-3">
+                Self-host checklist (run your own SOCKS5 on a VPS)
+              </AccordionTrigger>
+              <AccordionContent className="pb-3">
+                <ol className="text-[10px] text-muted-foreground space-y-1 leading-snug list-decimal list-inside">
+                  <li>Use a <span className="text-emerald-300">strict-KYC VPS</span> (Hetzner / Linode) — clean IP ranges. Open a ticket asking to unblock outbound port 25 for "email list hygiene, with full FCrDNS/SPF".</li>
+                  <li>Set up <span className="text-emerald-300">FCrDNS</span>: A record <code className="text-emerald-300">myverifier.com → VPS IP</code>, and PTR (reverse DNS) <code className="text-emerald-300">VPS IP → myverifier.com</code> (must match both ways).</li>
+                  <li>Publish <span className="text-emerald-300">SPF</span> (<code>v=spf1 ip4:YOUR_IP ~all</code>) and <span className="text-emerald-300">DMARC</span> (<code>v=DMARC1; p=none;</code>) on that domain.</li>
+                  <li>Point this app's HELO / MAIL FROM at your domain via backend env: <code className="text-emerald-300">SMTP_HELO_NAME=myverifier.com</code> and <code className="text-emerald-300">SMTP_MAIL_FROM=verifier@myverifier.com</code>.</li>
+                  <li>Run a SOCKS5 daemon (e.g. Dante) on the VPS and add it above. We already EHLO with your domain, use a real MAIL FROM, and send a clean QUIT — the MTA-emulation Yahoo expects.</li>
+                </ol>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="cost" className="border border-emerald-800/40 bg-emerald-950/15 rounded-lg px-3">
+              <AccordionTrigger data-testid="guide-cost-trigger" className="text-[13px] font-medium text-emerald-300 hover:no-underline py-3">
+                Cutting cost & the 10k/day cap
+              </AccordionTrigger>
+              <AccordionContent className="pb-3">
+                <ul className="text-[10px] text-muted-foreground space-y-1 leading-snug list-disc list-inside">
+                  <li><span className="text-emerald-300">Pre-filter free first:</span> run the list once with <span className="text-emerald-300">SMTP off</span> (MX + syntax + disposable + typo) — it's unlimited and free, and removes a big chunk of junk before you spend any paid verifications.</li>
+                  <li><span className="text-emerald-300">Self-host beats managed at volume:</span> a strict-KYC VPS (Hetzner/Linode) is ~$5–15/mo with port 25 unblocked — no per-verification cap. One clean IP handles Gmail/Microsoft-heavy lists well beyond 10k/day; add 2–4 IPs only for Yahoo/AOL/iCloud reputation limits.</li>
+                  <li><span className="text-emerald-300">Rotate a few cheap IPs</span> instead of one expensive managed pool — this app auto-rotates through every enabled proxy.</li>
+                  <li>Managed pools ($49/mo tiers) are worth it only if you can't do DNS/PTR setup or need instant warmed IPs. For most, self-host is far cheaper per email.</li>
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </ScrollArea>
       </DialogContent>
     </Dialog>
