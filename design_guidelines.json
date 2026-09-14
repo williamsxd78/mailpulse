@@ -1,0 +1,144 @@
+{
+  "project_name": "Reacher Email Validator & Deliverability Studio",
+  "theme": {
+    "mode": "dark",
+    "background": "#0B0F19",
+    "surface_primary": "#111827",
+    "surface_secondary": "#1F2937",
+    "surface_tertiary": "#1E293B",
+    "border_color": "#374151",
+    "border_accent_valid": "#10B981",
+    "border_accent_invalid": "#EF4444",
+    "text_primary": "#F9FAFB",
+    "text_secondary": "#9CA3AF",
+    "text_muted": "#6B7280",
+    "accent_emerald": "#10B981",
+    "accent_rose": "#F43F5E",
+    "accent_amber": "#F59E0B",
+    "accent_cyan": "#06B6D4",
+    "accent_indigo": "#6366F1"
+  },
+  "typography": {
+    "heading_font": "Outfit, system-ui, -apple-system, sans-serif",
+    "body_font": "Inter, system-ui, -apple-system, sans-serif",
+    "code_font": "'Fira Code', 'JetBrains Mono', Consolas, monospace",
+    "hierarchy": {
+      "h1": "text-3xl lg:text-4xl font-bold tracking-tight",
+      "h2": "text-xl lg:text-2xl font-semibold tracking-tight",
+      "h3": "text-lg font-medium",
+      "body": "text-sm text-gray-300",
+      "mono_sm": "font-mono text-xs tracking-wide"
+    }
+  },
+  "layout_architecture": {
+    "type": "High-Density Dual Console Studio Layout",
+    "header": {
+      "title": "REACHER // MAIL PULSE",
+      "subtitle": "Rust-powered real-time deliverability & MX verification engine",
+      "controls": [
+        "Thread Concurrency Slider (1 to 20 parallel workers)",
+        "Load Sample Batch Button",
+        "Clear All Button",
+        "History Drawer Toggle",
+        "Theme / Settings Toggle"
+      ]
+    },
+    "workspace_panels": {
+      "left_panel": {
+        "title": "Email Input Stream",
+        "features": [
+          "Multiline line-numbered text area (supports thousands of emails)",
+          "CSV / TXT file upload drag-and-drop target zone",
+          "Deduplication & trim whitespace toggles",
+          "Worker thread speed selector dropdown / range slider",
+          "Primary execution CTA button ('Validate Email Stream')"
+        ]
+      },
+      "right_panel": {
+        "title": "Categorized Verification Matrix",
+        "dual_output_boxes": {
+          "box_1_valid": {
+            "name": "Deliverable & Valid Emails",
+            "accent": "Emerald Green",
+            "actions": ["Copy List Button", "Download CSV/TXT Button", "Search Filter"],
+            "badges": ["Syntax Valid", "MX Record Active", "SMTP Handshake Pass"]
+          },
+          "box_2_invalid": {
+            "name": "Bounce / Invalid / Error Emails",
+            "accent": "Crimson / Rose",
+            "actions": ["Copy List Button", "Download CSV/TXT Button", "Search Filter"],
+            "badges": ["Invalid Syntax", "No MX Record", "Disposable Domain", "Role Account", "Mailbox Full"]
+          }
+        }
+      }
+    },
+    "metrics_bar": [
+      "Total Emails Loaded",
+      "Deliverable Count & Percentage",
+      "Invalid / Bounced Count & Percentage",
+      "Processing Velocity (emails/sec)",
+      "Active Threads Count"
+    ],
+    "history_panel": "Slide-over panel listing past validation batches, timestamp, total counts, deliverability score, and re-run/export options."
+  },
+  "visual_enhancers": {
+    "glassmorphism": "backdrop-blur-md bg-gray-900/80 border border-gray-800",
+    "glow_effects": "shadow-[0_0_15px_rgba(16,185,129,0.15)] for valid cards, shadow-[0_0_15px_rgba(239,68,68,0.15)] for error cards",
+    "micro_interactions": "Animated progress bar, real-time pulse dots on active worker threads, instant toast feedback on copy/download",
+    "status_pills": {
+      "valid": "bg-emerald-950/80 text-emerald-400 border border-emerald-800/60",
+      "invalid": "bg-rose-950/80 text-rose-400 border border-rose-800/60",
+      "disposable": "bg-amber-950/80 text-amber-400 border border-amber-800/60",
+      "role": "bg-cyan-950/80 text-cyan-400 border border-cyan-800/60"
+    }
+  },
+  "component_guidelines": {
+    "buttons": "Pill or crisp 6px rounded edges with hover glow effects and micro transform scales (`active:scale-95`).",
+    "inputs": "Textarea with dark monospace styling (`bg-gray-950 text-emerald-400 font-mono text-xs p-4 border border-gray-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500`).",
+    "toasts": "Sonner library for crisp alerts on list copy, file downloads, and batch completion.",
+    "shadcn_components": [
+      "Button", "Textarea", "Input", "Progress", "Tabs", "Dialog", "Sheet", "Slider", "Badge", "Card", "Table", "Tooltip", "DropdownMenu", "Switch"
+    ]
+  },
+  "required_test_ids": [
+    "email-input-textarea",
+    "validate-start-button",
+    "sample-data-button",
+    "clear-all-button",
+    "threads-slider",
+    "dedupe-switch",
+    "file-upload-input",
+    "deliverable-box",
+    "deliverable-copy-button",
+    "deliverable-download-button",
+    "deliverable-count-badge",
+    "invalid-box",
+    "invalid-copy-button",
+    "invalid-download-button",
+    "invalid-count-badge",
+    "history-drawer-toggle",
+    "history-panel",
+    "progress-indicator"
+  ],
+  "image_urls": [
+    {
+      "category": "cyberpunk_infrastructure_bg",
+      "url": "https://images.unsplash.com/photo-1563863251222-11d3e3bd3b62?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTB8MHwxfHNlYXJjaHwxfHxjeWJlcnB1bmslMjBzZXJ2ZXIlMjBuZW9uJTIwaW5mcmFzdHJ1Y3R1cmV8ZW58MHx8fHwxNzg5MzYwNTAzfDA&ixlib=rb-4.1.0&q=85",
+      "description": "Futuristic red neon server architecture"
+    },
+    {
+      "category": "cyberpunk_city_tech",
+      "url": "https://images.unsplash.com/photo-1672872476232-da16b45c9001?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTB8MHwxfHNlYXJjaHwzfHxjeWJlcnB1bmslMjBzZXJ2ZXIlMjBuZW9uJTIwaW5mcmFzdHJ1Y3R1cmV8ZW58MHx8fHwxNzg5MzYwNTAzfDA&ixlib=rb-4.1.0&q=85",
+      "description": "Futuristic neon high-density data network cityscape"
+    }
+  ],
+  "instructions_to_main_agent": [
+    "Implement the React frontend with a two-panel side-by-side workspace: Input list on the left with thread & filter controls, and two output boxes on the right (Valid/Deliverable vs Invalid/Bounce/Error).",
+    "Provide Copy to Clipboard and Download (.txt / .csv) functionality for both output boxes with Sonner toast feedback.",
+    "Include thread concurrency settings (1 to 20 threads) and live checking progress indicator with animated progress bar and throughput stats.",
+    "Add detailed per-email tag classification (e.g., Syntax Error, No MX Record, Disposable Domain, Role Account, Deliverable).",
+    "Include a Check History drawer/panel storing previous validation runs with timestamps and deliverability breakdown.",
+    "Strictly attach all `data-testid` attributes listed in `required_test_ids`.",
+    "Do NOT use HTML raw select or date pickers; use customized Shadcn primitives."
+  ]
+}

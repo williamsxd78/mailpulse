@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Chivo:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    color-scheme: dark;
+}
+
+body {
+    margin: 0;
+    font-family: 'Chivo', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+code, .font-mono {
+    font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+}
+
+@layer base {
+    :root {
+        --background: 222 47% 6%;
+        --foreground: 210 40% 98%;
+        --card: 222 40% 9%;
+        --card-foreground: 210 40% 98%;
+        --popover: 222 44% 8%;
+        --popover-foreground: 210 40% 98%;
+        --primary: 160 84% 39%;
+        --primary-foreground: 222 47% 6%;
+        --secondary: 217 33% 17%;
+        --secondary-foreground: 210 40% 98%;
+        --muted: 217 33% 15%;
+        --muted-foreground: 215 20% 65%;
+        --accent: 217 33% 17%;
+        --accent-foreground: 210 40% 98%;
+        --destructive: 350 89% 60%;
+        --destructive-foreground: 210 40% 98%;
+        --border: 217 33% 20%;
+        --input: 217 33% 18%;
+        --ring: 160 84% 39%;
+        --radius: 0.5rem;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
+    h1, h2, h3, .font-display {
+        font-family: 'Sora', system-ui, sans-serif;
+    }
+}
+
+/* App ambient background */
+.mp-grid-bg {
+    background-color: #070B14;
+    background-image:
+        radial-gradient(circle at 15% 20%, rgba(16, 185, 129, 0.10), transparent 40%),
+        radial-gradient(circle at 85% 80%, rgba(244, 63, 94, 0.08), transparent 42%),
+        linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
+}
+
+/* Custom scrollbars */
+.mp-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.mp-scroll::-webkit-scrollbar-track { background: transparent; }
+.mp-scroll::-webkit-scrollbar-thumb { background: hsl(217 33% 24%); border-radius: 8px; }
+.mp-scroll::-webkit-scrollbar-thumb:hover { background: hsl(217 33% 32%); }
+
+@keyframes mp-pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+}
+.mp-pulse { animation: mp-pulse-dot 1.1s ease-in-out infinite; }
+
+@keyframes mp-fade-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.mp-fade-up { animation: mp-fade-up 0.35s ease-out both; }
+
+::selection { background: rgba(16, 185, 129, 0.3); color: #ecfdf5; }
