@@ -189,6 +189,17 @@ export function ProxyManager({ open, onOpenChange }) {
                       <li>Run a SOCKS5 daemon (e.g. Dante) on the VPS and add it above. We already EHLO with your domain, use a real MAIL FROM, and send a clean QUIT — the MTA-emulation Yahoo expects.</li>
                     </ol>
                   </div>
+
+                  {/* Cost & sizing */}
+                  <div className="rounded-md border border-emerald-800/40 bg-emerald-950/15 px-2.5 py-2">
+                    <p className="text-[11px] font-semibold text-emerald-300 mb-1">Cutting cost & the 10k/day cap</p>
+                    <ul className="text-[10px] text-muted-foreground space-y-1 leading-snug list-disc list-inside">
+                      <li><span className="text-emerald-300">Pre-filter free first:</span> run the list once with <span className="text-emerald-300">SMTP off</span> (MX + syntax + disposable + typo) — it's unlimited and free, and removes a big chunk of junk before you spend any paid verifications.</li>
+                      <li><span className="text-emerald-300">Self-host beats managed at volume:</span> a strict-KYC VPS (Hetzner/Linode) is ~$5–15/mo with port 25 unblocked — no per-verification cap. One clean IP handles Gmail/Microsoft-heavy lists well beyond 10k/day; add 2–4 IPs only for Yahoo/AOL/iCloud reputation limits.</li>
+                      <li><span className="text-emerald-300">Rotate a few cheap IPs</span> instead of one expensive managed pool — this app auto-rotates through every enabled proxy.</li>
+                      <li>Managed pools ($49/mo tiers) are worth it only if you can't do DNS/PTR setup or need instant warmed IPs. For most, self-host is far cheaper per email.</li>
+                    </ul>
+                  </div>
                 </div>
               </CollapsibleContent>
             </div>
