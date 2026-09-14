@@ -54,6 +54,17 @@ EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9]"
                          r"(?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
                          r"(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$")
 
+# Un-anchored: pulls the email out of combo lines like "email:pass" or "url:email:pass".
+EMAIL_SEARCH = re.compile(r"[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9]"
+                          r"(?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+                          r"(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+")
+
+
+def _extract_email(line: str) -> str:
+    """Pick only the email from a line, dropping any :password / delimiters."""
+    m = EMAIL_SEARCH.search(line)
+    return m.group(0) if m else line
+
 DISPOSABLE_DOMAINS = {
     "mailinator.com", "10minutemail.com", "guerrillamail.com", "guerrillamail.info",
     "trashmail.com", "yopmail.com", "tempmail.com", "temp-mail.org", "getnada.com",
@@ -151,7 +162,7 @@ async def validate_emails(emails: List[str], dedupe: bool) -> List[dict]:
     cleaned = []
     seen = set()
     for e in emails:
-        e = e.strip()
+        e = _extract_email(e.strip())
         if not e:
             continue
         key = e.lower()

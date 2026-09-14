@@ -11,15 +11,15 @@ import { ResultBox } from "@/components/ResultBox";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { validateEmails } from "@/lib/api";
 
-const SAMPLE = `amaury@reacher.email
-john.doe@gmail.com
+const SAMPLE = `amaury@reacher.email:hunter2
+john.doe@gmail.com:MyP@ss123
 support@microsoft.com
-test@mailinator.com
+test@mailinator.com:qwerty
 invalid-email-address
-user@gmial.com
+user@gmial.com:abc123
 hello@yahoo.com
-info@nonexistentdomain-xyz-123.com
-sarah.kim@outlook.com
+info@nonexistentdomain-xyz-123.com:pass
+sarah.kim@outlook.com:letmein
 admin@stripe.com
 foobar@@broken.com
 contact@github.com`;
@@ -128,7 +128,7 @@ export default function Validator() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 bg-black/20">
             <div>
               <h2 className="font-display text-sm font-semibold text-foreground">Email Input Stream</h2>
-              <p className="text-[11px] text-muted-foreground">one email per line</p>
+              <p className="text-[11px] text-muted-foreground">one per line · email or email:pass</p>
             </div>
             <span className="font-mono text-xs text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-800/50 bg-black/30">
               {lineCount} loaded
@@ -147,7 +147,7 @@ export default function Validator() {
               data-testid="email-input-textarea"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={"paste emails here…\njohn@example.com\njane@company.io"}
+              placeholder={"paste emails here…\njohn@example.com\njane@company.io:password123"}
               className="mp-scroll h-[38vh] min-h-[220px] resize-none font-mono text-[13px] text-emerald-300 bg-black/40 border-border/60 focus-visible:ring-emerald-500/50 focus-visible:border-emerald-600"
             />
 
