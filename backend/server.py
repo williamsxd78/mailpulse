@@ -16,6 +16,7 @@ from typing import List, Optional, Any, Annotated
 from datetime import datetime, timezone
 from bson import ObjectId
 import dns.resolver
+import bulk
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -416,6 +417,7 @@ async def delete_batch(batch_id: str):
 
 
 app.include_router(api_router)
+app.include_router(bulk.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -424,6 +426,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def _resume_bulk_jobs():
+    try:
+        await bulk.resume_jobs()
+    except Exception:
+        logger.exception("failed to resume bulk jobs")
 
 
 @app.on_event("shutdown")

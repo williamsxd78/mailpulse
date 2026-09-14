@@ -1,0 +1,8 @@
+email,status,category,reason,mx
+abuschiv2528@gmail.com,mailbox_not_found,invalid,Mailbox does not exist (550),gmail-smtp-in.l.google.com
+definitely-not-real-xyz-999@gmail.com,mailbox_not_found,invalid,Mailbox does not exist (550),gmail-smtp-in.l.google.com
+john.doe@gmail.com,mailbox_not_found,invalid,Mailbox does not exist (550),gmail-smtp-in.l.google.com
+bad-email,invalid_syntax,invalid,Malformed email syntax,
+test@mailinator.com,disposable,invalid,Disposable / throwaway domain,
+x@nodomxyz-abc123.com,no_mx,invalid,No MX record found for domain,
+support@github.com,unknown,deliverable,Mailbox could not be verified (server greylisted or blocked the probe),github-com.mail.protection.outlook.com

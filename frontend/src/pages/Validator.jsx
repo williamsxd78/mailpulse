@@ -9,6 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ResultBox } from "@/components/ResultBox";
 import { HistoryPanel } from "@/components/HistoryPanel";
+import BulkJobs from "@/components/BulkJobs";
+import { ProxyManager } from "@/components/ProxyManager";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { validateEmails } from "@/lib/api";
 
 const SAMPLE = `amaury@reacher.email:hunter2
@@ -42,6 +45,8 @@ export default function Validator() {
   const [progress, setProgress] = useState(0);
   const [batch, setBatch] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [proxyOpen, setProxyOpen] = useState(false);
+  const [tab, setTab] = useState("quick");
   const [refreshKey, setRefreshKey] = useState(0);
   const progressTimer = useRef(null);
 
@@ -119,10 +124,22 @@ export default function Validator() {
           <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-muted-foreground px-3 py-2 rounded-lg border border-border/50 bg-black/20">
             <Cpu size={13} className="text-cyan-400" /> 10 workers
           </div>
+          <ProxyManager open={proxyOpen} onOpenChange={setProxyOpen} />
           <HistoryPanel open={historyOpen} onOpenChange={setHistoryOpen} onLoad={loadFromHistory} refreshKey={refreshKey} />
         </div>
       </header>
 
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
+        <TabsList className="bg-black/30 border border-border/50 mb-5" data-testid="mode-tabs">
+          <TabsTrigger value="quick" data-testid="tab-quick" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-emerald-950 font-display">
+            Quick Check
+          </TabsTrigger>
+          <TabsTrigger value="bulk" data-testid="tab-bulk" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-emerald-950 font-display">
+            Bulk (Large Lists)
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="quick" className="mt-0">
       <div className="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-5">
         {/* LEFT — input */}
         <section className="flex flex-col rounded-xl border border-border/60 bg-card/60 backdrop-blur-md overflow-hidden">
@@ -231,6 +248,12 @@ export default function Validator() {
           </div>
         </section>
       </div>
+        </TabsContent>
+
+        <TabsContent value="bulk" className="mt-0">
+          <BulkJobs />
+        </TabsContent>
+      </Tabs>
 
       <footer className="mt-8 text-center text-[11px] text-muted-foreground font-mono">
         MailPulse · syntax + MX + live SMTP mailbox verification · amber tags = catch-all / unverifiable

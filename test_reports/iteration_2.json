@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 2: full-scale bulk mode + proxy manager. Wrote /app/backend/tests/test_bulk.py (9 tests) covering quick-validate regression, small SMTP-on bulk job, real pause/resume on 500k list (asserted 0<processed<total after pause, processed==total after resume), cancel, download CSV per category (header + category filter verified), delete-from-list, proxy CRUD, direct SMTP probe (ok=true port25=true), bogus proxy (ok=false). All 9 new tests pass. Existing validator suite: 8/9 pass — 1 fail is legitimate: gmail SMTP now rejects 'john.doe@gmail.com' as mailbox_not_found (real result, not a bug). Frontend Playwright: Bulk tab creates a job via pasted text, card shows progress + counts, CSV dropdown lists All/Deliverable/Invalid, Proxies dialog Test button reports 'Connected to gmail-smtp-in.l.google.com on port 25 (58ms)'. Delete-job works. No JS console errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/jobs (pause)", "issue": "If pause is requested during the 'preparing' phase (before first WINDOW flush) the job transitions to status=paused with processed=0. Not a functional bug (resume works) but the UI 'Resume' button then resumes from 0. Consider ignoring pause requests until at least one window has been processed, or surfacing 'paused-before-start' state."},
+      {"endpoint": "/api/validate (test_validator.test_validate_mixed_categorization)", "issue": "'john.doe@gmail.com' now returns status=mailbox_not_found instead of the expected 'deliverable'. This is a REAL SMTP result from Gmail — the pre-existing test asserted a lucky live value. Update the fixture to use a known-good address or assert category in {deliverable, invalid}."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_bulk.py", "/app/backend/tests/test_validator.py", "/app/test_reports/pytest/pytest_results.xml", "/app/test_reports/pytest/pytest_bulk.xml"],
+  "action_items": [
+    "Update test_validator.test_validate_mixed_categorization: replace 'john.doe@gmail.com' or relax to assert category in {deliverable, invalid}; gmail actively rejects that mailbox now.",
+    "Optional: guard pause endpoint so pause during 'preparing' phase either waits for first window or is rejected with 409, to avoid processed=0 paused state."
+  ],
+  "critical_code_review_comments": [
+    "server.py still deprecates @app.on_event('startup'/'shutdown'); FastAPI 0.11x prefers lifespan. Migrate.",
+    "verifier.py and server.py duplicate ~150 lines of validation logic (EMAIL_REGEX, DISPOSABLE_DOMAINS, ROLE_PREFIXES, _classify_smtp, _verify_domain, validate_emails). server.py should import from verifier.py to remove drift. Currently server._verify_domain has no proxy support while verifier._verify_domain does — divergence risk.",
+    "bulk.py._prepare_from_gridfs writes to local scratch disk (WORK_DIR, RESULT_DIR). If the pod restarts / gets rescheduled the on-disk work/result files are lost while the DB job doc still points at them → resume yields 'No results yet' on download. Consider streaming results to GridFS too, or reject resume when files missing.",
+    "bulk.resume_jobs on startup relaunches jobs in states {queued, preparing, running}. Because processing skips 'processed' lines by reading the work file, a partially-written result CSV may lose the last partially-flushed window on crash (window buffer up to 200 entries in memory not yet flushed). Consider fsync per window or checkpoint before flushing csv.",
+    "bulk.pause_job returns 200 even when the worker is in 'preparing' phase and no windows have been processed → paused with processed=0 (see minor issue).",
+    "bulk.download_job splits CSV row on ',' — if 'reason' text contains a comma the category column check breaks. Use csv module for parsing, or ensure csv.writer quoting is preserved on read.",
+    "bulk.create_job accepts multipart 'dedupe'/'smtp_check' as Form(bool) — FastAPI parses 'true'/'false' strings ok, but frontend sends boolean stringified ('true'/'false' via FormData) which works — document the contract.",
+    "verifier._mx_cache is unbounded per pid; over long uptime memory grows.",
+    "Neither router enforces a max upload size on POST /api/jobs — a malicious client could push a 1TB stream into GridFS."
+  ],
+  "updated_files": ["/app/backend/tests/test_bulk.py"],
+  "success_rate": {"backend": "94.7% (18/19; one legitimate live-SMTP flake)", "frontend": "100%"},
+  "seed_data_creation": "TEST_-prefixed batches/jobs/proxies auto-cleaned by session fixtures. One 'Pause Test' completed job left in DB from prior manual run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend covered by /app/backend/tests/test_bulk.py (bulk+proxy) and /app/backend/tests/test_validator.py (quick). Pause-resume test uses 500k user{i}@gmail.com list with smtp_check=False and tight-polls until processed>=200 before issuing pause — do NOT reduce list size below ~200k or the whole job finishes before pause lands. Env allows outbound port 25 (verified: gmail MX 58ms). Proxy tests use 127.0.0.1:9 as guaranteed-fail bogus. Frontend data-testids all present and functional; download button opens dropdown with 3 options (All/Deliverable/Invalid).",
+  "rca of the issue": "N/A — no unresolved bugs. The single failing validator test is data-drift from a live SMTP endpoint, not a code defect."
+}
