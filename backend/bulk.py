@@ -177,7 +177,7 @@ async def _run_job(job_id: str):
                         counts["invalid_count"] += 1
                     else:
                         counts["deliverable_count"] += 1
-                        if r["status"] == "unknown":
+                        if r["status"] in ("unknown", "greylisted"):
                             counts["unknown_count"] += 1
                         elif r["status"] == "catch_all":
                             counts["catchall_count"] += 1

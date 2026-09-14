@@ -2,12 +2,17 @@
 No database access lives here so it can be reused by both quick and bulk flows.
 """
 import re
+import os
 import time
 import random
 import string
 import smtplib
+from pathlib import Path
+from dotenv import load_dotenv
 import dns.resolver
 import socks
+
+load_dotenv(Path(__file__).parent / ".env")
 
 MAX_WORKERS = 10
 
@@ -50,8 +55,8 @@ TYPO_DOMAINS = {
     "outlok.com": "outlook.com", "outllok.com": "outlook.com",
 }
 
-MAIL_FROM = "verify@mailpulse.io"
-HELO_NAME = "mailpulse.io"
+MAIL_FROM = os.environ.get("SMTP_MAIL_FROM", "verify@mailpulse.io")
+HELO_NAME = os.environ.get("SMTP_HELO_NAME", "mailpulse.io")
 
 NOT_FOUND_HINTS = (
     "does not exist", "doesn't exist", "no such user", "user unknown", "unknown user",
@@ -151,6 +156,10 @@ def _classify_smtp(out, code, text, catch_all):
         out.update(status="mailbox_not_found", category="invalid",
                    reason=f"Mailbox does not exist ({code})")
         out["tags"] = ["Mailbox Not Found"]
+    elif code is not None and 400 <= code < 500:
+        out.update(status="greylisted", category="deliverable",
+                   reason="Greylisted — server asked to retry later; re-check this address after a while")
+        out["tags"].append("Greylisted")
     else:
         out.update(status="unknown", category="deliverable",
                    reason="Mailbox could not be verified (server greylisted or blocked the probe)")

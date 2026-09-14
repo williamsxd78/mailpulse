@@ -167,6 +167,28 @@ export function ProxyManager({ open, onOpenChange }) {
                       Tip: providers with reverse-DNS (PTR) + warmed, blacklist-clean IPs give far more accurate results than raw datacenter IPs.
                     </p>
                   </div>
+
+                  {/* Provider roadblocks */}
+                  <div className="rounded-md border border-amber-900/40 bg-amber-950/15 px-2.5 py-2">
+                    <p className="text-[11px] font-semibold text-amber-300 mb-1">Yahoo / AOL & iCloud roadblocks</p>
+                    <ul className="text-[10px] text-muted-foreground space-y-1 leading-snug list-disc list-inside">
+                      <li><span className="text-amber-300">Yahoo/AOL catch-all trap:</span> on high volume from an unproven IP, Yahoo replies 250 OK to <em>everything</em> (even fake addresses). We auto-detect this and tag those emails <span className="text-amber-300">Catch-All</span> instead of falsely "valid". Needs a pristine IP + FCrDNS to get real answers.</li>
+                      <li><span className="text-amber-300">Yahoo requires FCrDNS:</span> without matching forward/reverse DNS on your proxy IP, Yahoo refuses the port-25 connection outright.</li>
+                      <li><span className="text-amber-300">iCloud greylisting:</span> Apple often says "try again later" (4xx) to new IPs and hard-blocks budget VPS ranges. We flag these <span className="text-amber-300">Greylisted</span> (not invalid) so you can re-check later rather than get false bounces.</li>
+                    </ul>
+                  </div>
+
+                  {/* Self-host checklist */}
+                  <div className="rounded-md border border-border/50 bg-black/20 px-2.5 py-2">
+                    <p className="text-[11px] font-semibold text-foreground mb-1">Self-host checklist (run your own SOCKS5 on a VPS)</p>
+                    <ol className="text-[10px] text-muted-foreground space-y-1 leading-snug list-decimal list-inside">
+                      <li>Use a <span className="text-emerald-300">strict-KYC VPS</span> (Hetzner / Linode) — clean IP ranges. Open a ticket asking to unblock outbound port 25 for "email list hygiene, with full FCrDNS/SPF".</li>
+                      <li>Set up <span className="text-emerald-300">FCrDNS</span>: A record <code className="text-emerald-300">myverifier.com → VPS IP</code>, and PTR (reverse DNS) <code className="text-emerald-300">VPS IP → myverifier.com</code> (must match both ways).</li>
+                      <li>Publish <span className="text-emerald-300">SPF</span> (<code>v=spf1 ip4:YOUR_IP ~all</code>) and <span className="text-emerald-300">DMARC</span> (<code>v=DMARC1; p=none;</code>) on that domain.</li>
+                      <li>Point this app's HELO / MAIL FROM at your domain via backend env: <code className="text-emerald-300">SMTP_HELO_NAME=myverifier.com</code> and <code className="text-emerald-300">SMTP_MAIL_FROM=verifier@myverifier.com</code>.</li>
+                      <li>Run a SOCKS5 daemon (e.g. Dante) on the VPS and add it above. We already EHLO with your domain, use a real MAIL FROM, and send a clean QUIT — the MTA-emulation Yahoo expects.</li>
+                    </ol>
+                  </div>
                 </div>
               </CollapsibleContent>
             </div>

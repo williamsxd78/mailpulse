@@ -16,11 +16,12 @@ const TAG_STYLES = {
   "Disposable Domain": "bg-amber-950/70 text-amber-300 border-amber-800/60",
   "Catch-All": "bg-amber-950/70 text-amber-300 border-amber-800/60",
   "Unverified": "bg-amber-950/70 text-amber-300 border-amber-800/60",
+  "Greylisted": "bg-amber-950/70 text-amber-300 border-amber-800/60",
   "Role Account": "bg-cyan-950/70 text-cyan-300 border-cyan-800/60",
   "Possible Typo": "bg-fuchsia-950/70 text-fuchsia-300 border-fuchsia-800/60",
 };
 
-const AMBER_STATUS = new Set(["unknown", "catch_all", "risky"]);
+const AMBER_STATUS = new Set(["unknown", "catch_all", "risky", "greylisted"]);
 
 function Tag({ label }) {
   const cls = TAG_STYLES[label] || "bg-slate-800/70 text-slate-300 border-slate-700/60";
