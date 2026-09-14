@@ -13,7 +13,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Header, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
@@ -49,6 +49,10 @@ router = APIRouter(prefix="/api")
 
 def _now():
     return datetime.now(timezone.utc).isoformat()
+
+
+def _owner(x):
+    return x or "public"
 
 
 def _work_paths(job_id):
@@ -104,9 +108,9 @@ def _process_window(emails, smtp_check, proxies):
     return verifier.verify_batch(emails, smtp_check=smtp_check, proxies=proxies)
 
 
-async def _load_proxies():
+async def _load_proxies(owner):
     out = []
-    async for p in proxies_col.find({"enabled": True}):
+    async for p in proxies_col.find({"enabled": True, "owner_id": owner}):
         out.append({"type": p.get("type"), "host": p.get("host"), "port": p.get("port"),
                     "username": p.get("username"), "password": p.get("password")})
     return out
@@ -142,7 +146,7 @@ async def _run_job(job_id: str):
             job = await jobs.find_one({"_id": oid})
 
         smtp_check = job.get("smtp_check", True)
-        proxies = await _load_proxies() if smtp_check else []
+        proxies = await _load_proxies(job.get("owner_id", "public")) if smtp_check else []
 
         processed = job.get("processed", 0)
         counts = {
@@ -269,6 +273,7 @@ async def create_job(
     smtp_check: bool = Form(True),
     text: str = Form(None),
     file: UploadFile = File(None),
+    x_client_id: str = Header(None, alias="X-Client-Id"),
 ):
     if not file and not (text and text.strip()):
         raise HTTPException(status_code=400, detail="Provide a file or pasted emails")
@@ -289,6 +294,7 @@ async def create_job(
     job_name = (name or "").strip() or f"Bulk {datetime.now(timezone.utc).strftime('%b %d, %H:%M:%S')}"
     doc = {
         "name": job_name, "status": "queued", "created_at": now, "updated_at": now,
+        "owner_id": _owner(x_client_id),
         "smtp_check": smtp_check, "dedupe": dedupe, "prepared": False, "raw_grid_id": raw_grid_id,
         "total": 0, "processed": 0, "deliverable_count": 0, "invalid_count": 0,
         "unknown_count": 0, "catchall_count": 0, "active_seconds": 0.0, "rate": 0,
@@ -300,8 +306,9 @@ async def create_job(
 
 
 @router.get("/jobs")
-async def list_jobs():
-    return [_job_public(job) async for job in jobs.find().sort("created_at", -1).limit(100)]
+async def list_jobs(x_client_id: str = Header(None, alias="X-Client-Id")):
+    q = {"owner_id": _owner(x_client_id)}
+    return [_job_public(job) async for job in jobs.find(q).sort("created_at", -1).limit(100)]
 
 
 def _get_oid(job_id):
@@ -311,19 +318,21 @@ def _get_oid(job_id):
         raise HTTPException(status_code=400, detail="Invalid id")
 
 
-@router.get("/jobs/{job_id}")
-async def get_job(job_id: str):
-    job = await jobs.find_one({"_id": _get_oid(job_id)})
+async def _owned_job(job_id, x_client_id):
+    job = await jobs.find_one({"_id": _get_oid(job_id), "owner_id": _owner(x_client_id)})
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return _job_public(job)
+    return job
+
+
+@router.get("/jobs/{job_id}")
+async def get_job(job_id: str, x_client_id: str = Header(None, alias="X-Client-Id")):
+    return _job_public(await _owned_job(job_id, x_client_id))
 
 
 @router.post("/jobs/{job_id}/pause")
-async def pause_job(job_id: str):
-    job = await jobs.find_one({"_id": _get_oid(job_id)})
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+async def pause_job(job_id: str, x_client_id: str = Header(None, alias="X-Client-Id")):
+    job = await _owned_job(job_id, x_client_id)
     if job.get("status") != "running":
         raise HTTPException(status_code=400, detail="Job can only be paused while running")
     JOB_CONTROL[job_id] = "pause"
@@ -331,42 +340,35 @@ async def pause_job(job_id: str):
 
 
 @router.post("/jobs/{job_id}/resume")
-async def resume_job(job_id: str):
-    oid = _get_oid(job_id)
-    job = await jobs.find_one({"_id": oid})
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+async def resume_job(job_id: str, x_client_id: str = Header(None, alias="X-Client-Id")):
+    job = await _owned_job(job_id, x_client_id)
     if job.get("status") not in ("paused", "failed"):
         raise HTTPException(status_code=400, detail="Job cannot be resumed")
     if job_id in JOB_TASKS:
         raise HTTPException(status_code=400, detail="Job already running")
-    await jobs.update_one({"_id": oid}, {"$set": {"status": "running", "error": None, "updated_at": _now()}})
+    await jobs.update_one({"_id": job["_id"]}, {"$set": {"status": "running", "error": None, "updated_at": _now()}})
     _launch(job_id)
     return {"status": "resumed"}
 
 
 @router.post("/jobs/{job_id}/cancel")
-async def cancel_job(job_id: str):
-    oid = _get_oid(job_id)
-    job = await jobs.find_one({"_id": oid})
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+async def cancel_job(job_id: str, x_client_id: str = Header(None, alias="X-Client-Id")):
+    job = await _owned_job(job_id, x_client_id)
     JOB_CONTROL[job_id] = "cancel"
     if job.get("status") == "paused" and job_id not in JOB_TASKS:
-        await jobs.update_one({"_id": oid}, {"$set": {"status": "canceled", "updated_at": _now()}})
+        await jobs.update_one({"_id": job["_id"]}, {"$set": {"status": "canceled", "updated_at": _now()}})
     return {"status": "canceling"}
 
 
 @router.delete("/jobs/{job_id}")
-async def delete_job(job_id: str):
-    oid = _get_oid(job_id)
+async def delete_job(job_id: str, x_client_id: str = Header(None, alias="X-Client-Id")):
+    job = await _owned_job(job_id, x_client_id)
     JOB_CONTROL[job_id] = "cancel"
     task = JOB_TASKS.get(job_id)
     if task:
         task.cancel()
-    job = await jobs.find_one({"_id": oid})
-    res = await jobs.delete_one({"_id": oid})
-    if job and job.get("raw_grid_id"):
+    await jobs.delete_one({"_id": job["_id"]})
+    if job.get("raw_grid_id"):
         try:
             await _bucket.delete(job["raw_grid_id"])
         except Exception:
@@ -376,15 +378,15 @@ async def delete_job(job_id: str):
             p.unlink(missing_ok=True)
         except Exception:
             pass
-    if res.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Job not found")
     return {"deleted": True}
 
 
 @router.get("/jobs/{job_id}/download")
-async def download_job(job_id: str, category: str = "all"):
-    oid = _get_oid(job_id)
-    job = await jobs.find_one({"_id": oid})
+async def download_job(job_id: str, category: str = "all",
+                       client_id: str = Query(None),
+                       x_client_id: str = Header(None, alias="X-Client-Id")):
+    owner = _owner(client_id or x_client_id)
+    job = await jobs.find_one({"_id": _get_oid(job_id), "owner_id": owner})
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     _, result_path = _work_paths(job_id)
@@ -441,33 +443,35 @@ def _proxy_public(p):
 
 
 @router.get("/proxies")
-async def list_proxies():
-    return [_proxy_public(p) async for p in proxies_col.find().sort("_id", -1)]
+async def list_proxies(x_client_id: str = Header(None, alias="X-Client-Id")):
+    q = {"owner_id": _owner(x_client_id)}
+    return [_proxy_public(p) async for p in proxies_col.find(q).sort("_id", -1)]
 
 
 @router.post("/proxies")
-async def add_proxy(proxy: ProxyIn):
+async def add_proxy(proxy: ProxyIn, x_client_id: str = Header(None, alias="X-Client-Id")):
     doc = proxy.model_dump()
     doc["created_at"] = _now()
+    doc["owner_id"] = _owner(x_client_id)
     inserted = await proxies_col.insert_one(doc)
     doc["_id"] = inserted.inserted_id
     return _proxy_public(doc)
 
 
 @router.delete("/proxies/{proxy_id}")
-async def delete_proxy(proxy_id: str):
-    res = await proxies_col.delete_one({"_id": _get_oid(proxy_id)})
+async def delete_proxy(proxy_id: str, x_client_id: str = Header(None, alias="X-Client-Id")):
+    res = await proxies_col.delete_one({"_id": _get_oid(proxy_id), "owner_id": _owner(x_client_id)})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Proxy not found")
     return {"deleted": True}
 
 
 @router.post("/proxies/test")
-async def test_proxy(body: ProxyTestIn):
+async def test_proxy(body: ProxyTestIn, x_client_id: str = Header(None, alias="X-Client-Id")):
     proxy = None
     proxy_id = None
     if body.id:
-        p = await proxies_col.find_one({"_id": _get_oid(body.id)})
+        p = await proxies_col.find_one({"_id": _get_oid(body.id), "owner_id": _owner(x_client_id)})
         if not p:
             raise HTTPException(status_code=404, detail="Proxy not found")
         proxy_id = p["_id"]

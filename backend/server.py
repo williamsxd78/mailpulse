@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Header
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -359,7 +359,7 @@ async def root():
 
 
 @api_router.post("/validate", response_model=BatchDetail)
-async def validate(req: ValidateRequest):
+async def validate(req: ValidateRequest, x_client_id: str = Header(None, alias="X-Client-Id")):
     results = await validate_emails(req.emails, req.dedupe, req.smtp_check)
     if not results:
         raise HTTPException(status_code=400, detail="No valid email entries to process")
@@ -373,6 +373,7 @@ async def validate(req: ValidateRequest):
     doc = {
         "name": name,
         "created_at": now,
+        "owner_id": x_client_id or "public",
         "total": len(results),
         "deliverable_count": len(deliverable),
         "invalid_count": len(invalid),
@@ -384,8 +385,9 @@ async def validate(req: ValidateRequest):
 
 
 @api_router.get("/history", response_model=List[BatchSummary])
-async def history():
-    cursor = db.batches.find({}, {"results": 0}).sort("created_at", -1).limit(100)
+async def history(x_client_id: str = Header(None, alias="X-Client-Id")):
+    owner = x_client_id or "public"
+    cursor = db.batches.find({"owner_id": owner}, {"results": 0}).sort("created_at", -1).limit(100)
     out = []
     async for d in cursor:
         d["id"] = str(d.pop("_id"))
@@ -394,9 +396,10 @@ async def history():
 
 
 @api_router.get("/history/{batch_id}", response_model=BatchDetail)
-async def history_detail(batch_id: str):
+async def history_detail(batch_id: str, x_client_id: str = Header(None, alias="X-Client-Id")):
+    owner = x_client_id or "public"
     try:
-        d = await db.batches.find_one({"_id": ObjectId(batch_id)})
+        d = await db.batches.find_one({"_id": ObjectId(batch_id), "owner_id": owner})
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid batch id")
     if not d:
@@ -406,9 +409,10 @@ async def history_detail(batch_id: str):
 
 
 @api_router.delete("/history/{batch_id}")
-async def delete_batch(batch_id: str):
+async def delete_batch(batch_id: str, x_client_id: str = Header(None, alias="X-Client-Id")):
+    owner = x_client_id or "public"
     try:
-        res = await db.batches.delete_one({"_id": ObjectId(batch_id)})
+        res = await db.batches.delete_one({"_id": ObjectId(batch_id), "owner_id": owner})
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid batch id")
     if res.deleted_count == 0:

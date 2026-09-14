@@ -1,0 +1,2 @@
+email,status,category,reason,mx
+x@gmail.com,deliverable,deliverable,Valid syntax and active MX record (mailbox not probed),gmail-smtp-in.l.google.com
