@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 4 full regression across ALL requested features. Backend: 18/18 tests PASS (6 new in test_regression_iter4.py + 5 typo + 7 bulk/proxy). Covered: quick mixed categorization (typo/syntax/disposable/no_mx/deliverable), email:pass combo parsing, clear-all history, per-browser isolation for /api/history, /api/jobs and /api/proxies (403-equivalent via 404 owner scoping), bulk CSV download honoring client_id query param, bulk full lifecycle (small SMTP-on complete, real pause on 500k MX-only job, resume, cancel, delete, CSV all/deliverable/invalid), proxy CRUD, direct port-25 probe (ok:true, connects to gmail-smtp-in.l.google.com), bogus proxy (ok:false). Frontend Playwright: mixed 6-email quick check correctly split 2 deliverable / 4 invalid; jane@company.io:secret parsed to jane@company.io in deliverable box with SYNTAX VALID + MX ACTIVE; user@gmial.com in invalid box with POSSIBLE TYPO + suggestion. Clear-all in History drawer empties the panel showing 'No validation runs yet'. Proxies dialog ordering verified via DOM position: proxy-add-button(9951) < proxy-list(10371) < test-direct-button(12312) < proxy-guide(13727). All 5 accordion sections (providers/steps/roadblocks/selfhost/cost) initially data-state=closed and toggle to open on click. Direct SMTP test button confirms Connected to gmail-smtp-in.l.google.com on port 25. No console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_regression_iter4.py",
+    "/app/backend/tests/test_typo_fix.py",
+    "/app/backend/tests/test_bulk.py",
+    "/app/test_reports/pytest/iter4.xml",
+    "/app/test_reports/pytest/iter4_bulk.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Isolation is enforced consistently: cross-tenant reads/writes on /api/history/{id}, /api/jobs/{id}, /api/jobs/{id}/(pause|resume|cancel), DELETE /api/jobs/{id}, DELETE /api/proxies/{id} all return 404 for the wrong owner. Good.",
+    "bulk.download_job accepts client_id via query param (needed for browser <a download> which cannot set headers) and falls back to X-Client-Id header — well-designed.",
+    "server.py still contains a large duplicated verification implementation (EMAIL_REGEX, _check_mx, _classify_smtp, validate_emails, TYPO/DISPOSABLE/ROLE sets) that mirrors verifier.py. The /api/validate endpoint delegates to verifier.validate_emails, so ~250 lines in server.py (lines ~40-310) are now DEAD CODE. Recommend deleting to shrink the file and remove drift risk. Non-blocking.",
+    "Deprecation: @app.on_event('startup'/'shutdown') in server.py — FastAPI recommends lifespan handlers. Non-blocking.",
+    "Consider hardening download_job: any user who knows a job_id + owner client_id string can download it (client_id passed in URL/query is not a secret). Since client_id is a localStorage UUID, exposure risk is limited but worth noting for future auth work."
+  ],
+  "updated_files": ["/app/backend/tests/test_regression_iter4.py"],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100%"},
+  "seed_data_creation": "Per-test unique X-Client-Id (TEST_A_/TEST_B_/TEST_clear_/TEST_iso_*) + batches/jobs/proxies auto-cleaned via DELETE endpoints inside each test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Regression suite fully green. Reusable tests live in /app/backend/tests/test_regression_iter4.py (isolation, clear-all, combo, mixed quick, bulk client_id download), test_bulk.py (pause/resume/cancel/download/proxy CRUD), test_typo_fix.py (typo domains), test_validator.py (base categorization; note prior known non-bug: john.doe@gmail.com may return mailbox_not_found from live Gmail SMTP — data drift, not a regression). Recommend main agent removes duplicated verification code from server.py (~250 lines) since /api/validate now delegates to verifier.py.",
+  "rca of the issue": "No issue — clean regression run."
+}
