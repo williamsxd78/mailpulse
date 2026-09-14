@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Server, Plus, Trash2, Loader2, CheckCircle2, XCircle, Wifi,
@@ -39,11 +39,12 @@ export function ProxyManager({ open, onOpenChange }) {
   const [directResult, setDirectResult] = useState(null);
   const [testingDirect, setTestingDirect] = useState(false);
 
-  const refresh = async () => {
-    try { setProxies(await listProxies()); } catch { /* ignore */ }
-  };
+  const refresh = useCallback(async () => {
+    try { setProxies(await listProxies()); }
+    catch (e) { console.error("Failed to load proxies:", e); }
+  }, []);
 
-  useEffect(() => { if (open) refresh(); }, [open]);
+  useEffect(() => { if (open) refresh(); }, [open, refresh]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 

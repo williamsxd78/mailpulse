@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { History, Trash2, RotateCcw, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
@@ -10,20 +10,21 @@ export function HistoryPanel({ open, onOpenChange, onLoad, refreshKey }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       setItems(await getHistory());
-    } catch {
+    } catch (e) {
+      console.error("Failed to load history:", e);
       toast.error("Failed to load history");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (open) load();
-  }, [open, refreshKey]);
+  }, [open, refreshKey, load]);
 
   const handleLoad = async (id) => {
     try {

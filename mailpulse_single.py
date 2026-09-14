@@ -13,7 +13,7 @@ SMTP verification needs outbound port 25 open on this machine.
 
 Env (optional): PORT, SMTP_HELO_NAME, SMTP_MAIL_FROM
 """
-import os, re, json, time, random, string, smtplib, threading
+import os, re, json, time, secrets, string, smtplib, threading
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -82,7 +82,7 @@ def check_mx(domain):
 
 
 def _rand(n=14):
-    return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
+    return "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(n))
 
 
 def _probe(srv, addr):

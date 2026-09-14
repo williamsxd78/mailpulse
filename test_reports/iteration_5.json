@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 5 regression after code-quality cleanup (server.py trimmed from ~440 to 175 lines, split ObjectId parse, secrets in verifier/mailpulse_single, useCallback + console.error in frontend). Backend pytest: 29/30 PASS (1 known non-bug: john.doe@gmail.com returns mailbox_not_found from live Gmail SMTP — same data-drift skip documented in iter4). All 6 iter4 regression tests still green: quick mixed categorization (good=>deliverable, gmial=>typo w/ suggestion user@gmail.com, bad-email=>invalid_syntax, mailinator=>disposable, nodomxyz=>no_mx), email:pass combo parsing (jane@company.io:secret -> jane@company.io), clear-all history, per-browser isolation for /api/history + /api/jobs + /api/proxies (owner-scoped 404 on cross-tenant reads/writes/pause/resume/cancel/delete), bulk CSV download honors client_id query param + category filter, proxy CRUD + direct port-25 probe (ok:true, port25:true) + bogus proxy (ok:false). bulk.py full lifecycle green: small SMTP-on completes, pause on large MX-only job (500k user{i}@gmail.com) yields 'paused' with 0<processed<total, resume finishes to 'completed' processed==total, cancel yields 'canceled', delete removes. Typo suite (5/5) + validator suite (10/11 with the documented gmail drift) all pass. Frontend Playwright smoke on live URL: Quick Check with all 5 target emails classified correctly (deliverable/typo-suggestion/mailinator/no_mx visible), Bulk tab loads Jobs panel, Proxies dialog opens with data-testid=test-direct-button and data-testid=proxy-guide present, direct SMTP test returns 'connected/port 25/gmail-smtp' message, History drawer opens with 'Clear all' button. 0 console errors, 0 page errors.",
+  "backend_issues": {"critical": [], "minor": [{"endpoint": "/api/validate live SMTP", "issue": "john.doe@gmail.com returns mailbox_not_found (Gmail SMTP data drift, not a code regression) — pre-existing since iter1/iter4, documented"}]},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_regression_iter4.py",
+    "/app/backend/tests/test_bulk.py",
+    "/app/backend/tests/test_typo_fix.py",
+    "/app/backend/tests/test_validator.py",
+    "/app/test_reports/pytest/iter5.xml"
+  ],
+  "action_items": [
+    "Optional: update test_validator.py::test_validate_mixed_categorization to allow status in {deliverable, mailbox_not_found, unverified, catch_all} for john.doe@gmail.com to remove flakiness against live Gmail SMTP; behaviour is not a regression from the cleanup."
+  ],
+  "critical_code_review_comments": [
+    "server.py cleanup verified — file is 175 lines, no duplicate EMAIL_REGEX/_check_mx/_classify_smtp/TYPO/DISPOSABLE constants remain; /api/validate delegates to verifier.validate_emails. Good.",
+    "history_detail and delete_batch now have their ObjectId parse in a separate try/except distinct from the DB lookup — 400 vs 404 semantics are correct.",
+    "Deprecation notice (non-blocking, carried from iter4): @app.on_event startup/shutdown should migrate to FastAPI lifespan handler.",
+    "download_job still accepts client_id via query param (needed for browser download links). This is not a secret; acceptable for the public-app threat model but worth an auth layer if scope expands."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "96.7% (29/30 — 1 documented live-Gmail data drift, not a regression)", "frontend": "100%"},
+  "seed_data_creation": "Ephemeral per-test X-Client-Id (TEST_A_/TEST_B_/TEST_clear_/TEST_iso_*), batches/jobs/proxies cleaned up inside each test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Cleanup regression is clean. The only failing test (test_validator.py::test_validate_mixed_categorization on john.doe@gmail.com) has failed identically since iter1 due to live Gmail SMTP returning 550 for that mailbox — not caused by the refactor. Suggest relaxing that specific assertion to a set of acceptable statuses. All isolation/bulk/proxy/quick-check flows verified via /app/backend/tests. Frontend live URL healthy with 0 console errors.",
+  "rca of the issue": "No regression introduced by the cleanup. The single failing assertion is a preexisting live-SMTP data drift on john.doe@gmail.com (Gmail responds 550 mailbox_not_found intermittently). Mitigation: broaden the accepted statuses set in that assertion or switch to a synthetic domain."
+}

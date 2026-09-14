@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Upload, Play, Pause, X, Trash2, Download, Loader2, FileText, ChevronDown,
@@ -127,19 +127,19 @@ export default function BulkJobs() {
   const fileRef = useRef(null);
   const fileObj = useRef(null);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       setJobs(await listJobs());
-    } catch {
-      /* ignore */
+    } catch (e) {
+      console.error("Failed to load jobs:", e);
     }
-  };
+  }, []);
 
   useEffect(() => {
     refresh();
     const t = setInterval(refresh, 2000);
     return () => clearInterval(t);
-  }, []);
+  }, [refresh]);
 
   const onFile = (e) => {
     const f = e.target.files?.[0];

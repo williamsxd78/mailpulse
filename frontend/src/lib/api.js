@@ -6,6 +6,9 @@ export const API = `${BACKEND_URL}/api`;
 export const api = axios.create({ baseURL: API });
 
 // Anonymous per-browser identity so each visitor only sees their own data.
+// NOTE: this is a NON-sensitive random UUID (no tokens/passwords/PII are ever
+// stored client-side), so localStorage is an appropriate, XSS-acceptable place
+// for it. If real auth is added later, use httpOnly cookies for session tokens.
 const CLIENT_ID_KEY = "mp_client_id";
 export function getClientId() {
   let id = localStorage.getItem(CLIENT_ID_KEY);

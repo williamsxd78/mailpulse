@@ -112,7 +112,8 @@ def _create_job(headers, text, name, smtp_check=False):
     return r.json()
 
 
-def _wait(job_id, headers, statuses={"completed"}, timeout=90):
+def _wait(job_id, headers, statuses=None, timeout=90):
+    statuses = statuses if statuses is not None else {"completed"}
     dl = time.time() + timeout
     while time.time() < dl:
         r = requests.get(f"{API}/jobs/{job_id}", headers=headers, timeout=15).json()

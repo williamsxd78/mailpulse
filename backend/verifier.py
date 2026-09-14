@@ -4,7 +4,7 @@ No database access lives here so it can be reused by both quick and bulk flows.
 import re
 import os
 import time
-import random
+import secrets
 import string
 import smtplib
 from pathlib import Path
@@ -103,7 +103,7 @@ def check_mx(domain: str):
 
 
 def _random_local(n=14):
-    return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
+    return "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(n))
 
 
 def smtp_connect(mx_host, timeout=12, proxy=None):
@@ -308,7 +308,7 @@ def verify_batch(emails, smtp_check=True, proxies=None):
 
     def work(item):
         domain, keys = item
-        proxy = random.choice(proxies) if proxies else None
+        proxy = secrets.choice(proxies) if proxies else None
         _verify_domain(domain, keys, results_map, smtp_check, proxy)
 
     if domains:
@@ -356,7 +356,7 @@ async def validate_emails(emails, dedupe=True, smtp_check=True, proxies=None):
     sem = asyncio.Semaphore(MAX_WORKERS)
 
     async def process(domain, keys):
-        proxy = random.choice(proxies) if proxies else None
+        proxy = secrets.choice(proxies) if proxies else None
         async with sem:
             await asyncio.to_thread(_verify_domain, domain, keys, results_map, smtp_check, proxy)
 
