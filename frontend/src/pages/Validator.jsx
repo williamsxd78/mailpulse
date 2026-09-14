@@ -37,6 +37,7 @@ export default function Validator() {
   const [text, setText] = useState("");
   const [name, setName] = useState("");
   const [dedupe, setDedupe] = useState(true);
+  const [smtpCheck, setSmtpCheck] = useState(true);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [batch, setBatch] = useState(null);
@@ -66,7 +67,7 @@ export default function Validator() {
     setLoading(true);
     startFakeProgress();
     try {
-      const data = await validateEmails({ emails, name: name.trim() || null, dedupe });
+      const data = await validateEmails({ emails, name: name.trim() || null, dedupe, smtp_check: smtpCheck });
       setBatch(data);
       setRefreshKey((k) => k + 1);
       toast.success(`Validated ${data.total} emails · ${data.deliverable_count} deliverable`);
@@ -116,7 +117,7 @@ export default function Validator() {
         </div>
         <div className="flex items-center gap-2">
           <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-muted-foreground px-3 py-2 rounded-lg border border-border/50 bg-black/20">
-            <Cpu size={13} className="text-cyan-400" /> 12 workers
+            <Cpu size={13} className="text-cyan-400" /> 10 workers
           </div>
           <HistoryPanel open={historyOpen} onOpenChange={setHistoryOpen} onLoad={loadFromHistory} refreshKey={refreshKey} />
         </div>
@@ -170,6 +171,16 @@ export default function Validator() {
               </div>
             </div>
 
+            <div className="flex items-center gap-2 mt-3 px-3 py-2 rounded-lg border border-border/50 bg-black/20">
+              <Switch data-testid="smtp-check-switch" checked={smtpCheck} onCheckedChange={setSmtpCheck} />
+              <div className="min-w-0">
+                <Label className="text-xs text-foreground cursor-pointer">SMTP mailbox verification</Label>
+                <p className="text-[10px] text-muted-foreground leading-tight">
+                  probes the mail server to confirm the exact mailbox exists (catches "address not found" bounces). Off = syntax + MX only.
+                </p>
+              </div>
+            </div>
+
             <Button
               data-testid="validate-start-button"
               onClick={handleValidate}
@@ -183,7 +194,7 @@ export default function Validator() {
               <div data-testid="progress-indicator" className="mt-3">
                 <Progress value={progress} className="h-1.5 bg-black/40" />
                 <p className="text-[11px] font-mono text-muted-foreground mt-1.5 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mp-pulse" /> checking MX records · {Math.round(progress)}%
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mp-pulse" /> probing mail servers · {Math.round(progress)}%
                 </p>
               </div>
             )}
@@ -222,7 +233,7 @@ export default function Validator() {
       </div>
 
       <footer className="mt-8 text-center text-[11px] text-muted-foreground font-mono">
-        MailPulse · open-source style email verification · no SMTP probing, MX + syntax based
+        MailPulse · syntax + MX + live SMTP mailbox verification · amber tags = catch-all / unverifiable
       </footer>
     </div>
   );

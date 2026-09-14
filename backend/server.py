@@ -6,6 +6,9 @@ import os
 import re
 import asyncio
 import logging
+import smtplib
+import random
+import string
 from pathlib import Path
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core import core_schema
@@ -28,7 +31,7 @@ api_router = APIRouter(prefix="/api")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-MAX_WORKERS = 12  # fixed sensible concurrency for MX lookups
+MAX_WORKERS = 10  # fixed sensible concurrency for MX / SMTP lookups
 
 # ---------------------------------------------------------------------------
 # ObjectId helpers (BaseDocument pattern)
@@ -115,51 +118,141 @@ def _check_mx(domain: str):
     return result
 
 
-def _validate_one(email: str) -> dict:
-    raw = email
-    email = email.strip().lower()
-    out = {"email": raw.strip(), "status": "invalid", "category": "invalid",
-           "reason": "", "tags": [], "mx": None, "suggestion": None}
+# ---------------------------------------------------------------------------
+# SMTP mailbox verification (RCPT TO probe)
+# ---------------------------------------------------------------------------
 
-    if not email:
-        return None
+MAIL_FROM = "verify@mailpulse.io"
+HELO_NAME = "mailpulse.io"
 
-    if "@" not in email or not EMAIL_REGEX.match(email):
-        out.update(status="invalid_syntax", category="invalid", reason="Malformed email syntax")
-        out["tags"] = ["Invalid Syntax"]
-        return out
+NOT_FOUND_HINTS = (
+    "does not exist", "doesn't exist", "no such user", "user unknown", "unknown user",
+    "user not found", "recipient not found", "no mailbox", "mailbox not found",
+    "invalid recipient", "invalid mailbox", "address rejected", "recipient rejected",
+    "account that you tried to reach", "recipient address rejected", "no such recipient",
+    "unrouteable address", "unknown recipient",
+)
+BLOCK_HINTS = (
+    "blocked", "blacklist", "spamhaus", "spam", "denied", "reputation", "policy",
+    "greylist", "grey list", "rate limit", "too many", "try again", "temporarily",
+    "service unavailable", "not authorized", "access denied", "barracuda",
+)
 
-    local, domain = email.rsplit("@", 1)
 
-    if domain in TYPO_DOMAINS:
-        out["suggestion"] = f"{local}@{TYPO_DOMAINS[domain]}"
+def _random_local(n=14):
+    return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
 
-    if domain in DISPOSABLE_DOMAINS:
-        out.update(status="disposable", category="invalid", reason="Disposable / throwaway domain")
-        out["tags"] = ["Disposable Domain"]
-        return out
 
-    has_mx, mx_host = _check_mx(domain)
-    if not has_mx:
-        out.update(status="no_mx", category="invalid", reason="No MX record found for domain")
-        out["tags"] = ["No MX Record"]
-        return out
+def _probe(server, addr):
+    try:
+        server.rset()
+    except Exception:
+        pass
+    server.mail(MAIL_FROM)
+    code, msg = server.rcpt(addr)
+    text = msg.decode(errors="replace") if isinstance(msg, bytes) else str(msg)
+    return code, text
 
-    out["mx"] = mx_host
-    is_role = local in ROLE_PREFIXES
-    if is_role:
-        out.update(status="risky", category="deliverable", reason="Role-based address (deliverable but risky)")
-        out["tags"] = ["MX Active", "Role Account"]
+
+def _classify_smtp(out, code, text, catch_all):
+    low = (text or "").lower()
+    if code in (250, 251):
+        if catch_all:
+            out.update(status="catch_all", category="deliverable",
+                       reason="Catch-all domain — accepts all mail, exact mailbox unconfirmed")
+            out["tags"].append("Catch-All")
+        else:
+            out.update(status="deliverable", category="deliverable",
+                       reason="Mailbox verified via SMTP")
+            out["tags"].append("Mailbox Verified")
+    elif code is not None and 500 <= code < 600 and (
+        any(h in low for h in NOT_FOUND_HINTS) or (code in (550, 551, 553) and not any(b in low for b in BLOCK_HINTS))
+    ):
+        out.update(status="mailbox_not_found", category="invalid",
+                   reason=f"Mailbox does not exist ({code})")
+        out["tags"] = ["Mailbox Not Found"]
     else:
-        out.update(status="deliverable", category="deliverable", reason="Valid syntax and active MX record")
-        out["tags"] = ["Syntax Valid", "MX Active"]
-    if out["suggestion"]:
-        out["tags"].append("Possible Typo")
+        out.update(status="unknown", category="deliverable",
+                   reason="Mailbox could not be verified (server greylisted or blocked the probe)")
+        out["tags"].append("Unverified")
     return out
 
 
-async def validate_emails(emails: List[str], dedupe: bool) -> List[dict]:
-    cleaned = []
+def _mx_only_classify(out, local):
+    out["tags"] = ["MX Active"]
+    if local in ROLE_PREFIXES:
+        out.update(status="risky", category="deliverable",
+                   reason="Role address; domain MX active (mailbox not probed)")
+        out["tags"].append("Role Account")
+    else:
+        out.update(status="deliverable", category="deliverable",
+                   reason="Valid syntax and active MX record (mailbox not probed)")
+        out["tags"].insert(0, "Syntax Valid")
+    if out.get("suggestion"):
+        out["tags"].append("Possible Typo")
+
+
+def _verify_domain(domain, keys, results_map, smtp_check):
+    """Runs in a worker thread. Resolves MX and (optionally) SMTP-probes every mailbox."""
+    has_mx, mx_host = _check_mx(domain)
+    if not has_mx:
+        for k in keys:
+            out = results_map[k]
+            out.update(status="no_mx", category="invalid", reason="No MX record found for domain")
+            out["tags"] = ["No MX Record"]
+        return
+
+    for k in keys:
+        results_map[k]["mx"] = mx_host
+
+    if not smtp_check or not mx_host:
+        for k in keys:
+            out = results_map[k]
+            _mx_only_classify(out, out["_local"])
+        return
+
+    server = None
+    try:
+        server = smtplib.SMTP(mx_host, 25, local_hostname=HELO_NAME, timeout=12)
+        server.ehlo_or_helo_if_needed()
+        catch_all = False
+        try:
+            code, _ = _probe(server, f"{_random_local()}@{domain}")
+            if code in (250, 251):
+                catch_all = True
+        except Exception:
+            pass
+        for k in keys:
+            out = results_map[k]
+            out["tags"] = ["MX Active"]
+            if out["_local"] in ROLE_PREFIXES:
+                out["tags"].append("Role Account")
+            try:
+                code, text = _probe(server, k)
+            except Exception as ex:
+                code, text = None, str(ex)
+            _classify_smtp(out, code, text, catch_all)
+            if out.get("suggestion"):
+                out["tags"].append("Possible Typo")
+        try:
+            server.quit()
+        except Exception:
+            pass
+    except Exception:
+        # Connection-level failure: fall back to MX-only signal.
+        for k in keys:
+            out = results_map[k]
+            _mx_only_classify(out, out["_local"])
+        if server:
+            try:
+                server.close()
+            except Exception:
+                pass
+
+
+async def validate_emails(emails: List[str], dedupe: bool, smtp_check: bool = True) -> List[dict]:
+    results_map = {}
+    order = []
     seen = set()
     for e in emails:
         e = _extract_email(e.strip())
@@ -169,16 +262,47 @@ async def validate_emails(emails: List[str], dedupe: bool) -> List[dict]:
         if dedupe and key in seen:
             continue
         seen.add(key)
-        cleaned.append(e)
+        order.append(key)
+
+        out = {"email": e.strip(), "status": "invalid", "category": "invalid",
+               "reason": "", "tags": [], "mx": None, "suggestion": None}
+        results_map[key] = out
+
+        if "@" not in key or not EMAIL_REGEX.match(key):
+            out.update(status="invalid_syntax", reason="Malformed email syntax")
+            out["tags"] = ["Invalid Syntax"]
+            continue
+        local, domain = key.rsplit("@", 1)
+        if domain in TYPO_DOMAINS:
+            out["suggestion"] = f"{local}@{TYPO_DOMAINS[domain]}"
+        if domain in DISPOSABLE_DOMAINS:
+            out.update(status="disposable", reason="Disposable / throwaway domain")
+            out["tags"] = ["Disposable Domain"]
+            continue
+        out["_domain"] = domain
+        out["_local"] = local
+
+    domains = {}
+    for k in order:
+        out = results_map[k]
+        if "_domain" in out:
+            domains.setdefault(out["_domain"], []).append(k)
 
     sem = asyncio.Semaphore(MAX_WORKERS)
 
-    async def run(e):
+    async def process(domain, keys):
         async with sem:
-            return await asyncio.to_thread(_validate_one, e)
+            await asyncio.to_thread(_verify_domain, domain, keys, results_map, smtp_check)
 
-    results = await asyncio.gather(*[run(e) for e in cleaned])
-    return [r for r in results if r]
+    await asyncio.gather(*[process(d, ks) for d, ks in domains.items()])
+
+    final = []
+    for k in order:
+        out = results_map[k]
+        out.pop("_domain", None)
+        out.pop("_local", None)
+        final.append(out)
+    return final
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +323,7 @@ class ValidateRequest(BaseModel):
     emails: List[str]
     name: Optional[str] = None
     dedupe: bool = True
+    smtp_check: bool = True
 
     @field_validator("emails")
     @classmethod
@@ -234,7 +359,7 @@ async def root():
 
 @api_router.post("/validate", response_model=BatchDetail)
 async def validate(req: ValidateRequest):
-    results = await validate_emails(req.emails, req.dedupe)
+    results = await validate_emails(req.emails, req.dedupe, req.smtp_check)
     if not results:
         raise HTTPException(status_code=400, detail="No valid email entries to process")
 

@@ -8,12 +8,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 const TAG_STYLES = {
   "Syntax Valid": "bg-emerald-950/70 text-emerald-300 border-emerald-800/60",
   "MX Active": "bg-emerald-950/70 text-emerald-300 border-emerald-800/60",
+  "Mailbox Verified": "bg-emerald-900/70 text-emerald-200 border-emerald-700/60",
   "Invalid Syntax": "bg-rose-950/70 text-rose-300 border-rose-800/60",
   "No MX Record": "bg-rose-950/70 text-rose-300 border-rose-800/60",
+  "Mailbox Not Found": "bg-rose-900/70 text-rose-200 border-rose-700/60",
+  "Rejected": "bg-rose-950/70 text-rose-300 border-rose-800/60",
   "Disposable Domain": "bg-amber-950/70 text-amber-300 border-amber-800/60",
+  "Catch-All": "bg-amber-950/70 text-amber-300 border-amber-800/60",
+  "Unverified": "bg-amber-950/70 text-amber-300 border-amber-800/60",
   "Role Account": "bg-cyan-950/70 text-cyan-300 border-cyan-800/60",
   "Possible Typo": "bg-fuchsia-950/70 text-fuchsia-300 border-fuchsia-800/60",
 };
+
+const AMBER_STATUS = new Set(["unknown", "catch_all", "risky"]);
 
 function Tag({ label }) {
   const cls = TAG_STYLES[label] || "bg-slate-800/70 text-slate-300 border-slate-700/60";
@@ -112,7 +119,7 @@ export function ResultBox({ variant, results, testId, countTestId, copyTestId, d
               <div key={r.email + i} className="mp-fade-up group rounded-lg border border-border/40 bg-black/20 hover:bg-black/40 px-3 py-2 transition-colors">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-[13px] text-foreground truncate">{r.email}</span>
-                  <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${accent.dot}`} />
+                  <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${AMBER_STATUS.has(r.status) ? "bg-amber-400" : accent.dot}`} />
                 </div>
                 <div className="flex flex-wrap items-center gap-1 mt-1.5">
                   {r.tags.map((t) => <Tag key={t} label={t} />)}
